@@ -25,8 +25,10 @@ function openSettings() {
     const cfg = data.config || {};
     cfgDomain.value = cfg.targetDomain || "";
     cfgSelectors.value = (cfg.buttonSelectors || []).join("\n");
-    cfgRestart.value = cfg.restartMinutes !== undefined ? cfg.restartMinutes : 15;
-    cfgBanner.value = cfg.bannerDurationMs !== undefined ? cfg.bannerDurationMs : 4000;
+    cfgRestart.value =
+      cfg.restartMinutes !== undefined ? cfg.restartMinutes : 15;
+    cfgBanner.value =
+      cfg.bannerDurationMs !== undefined ? cfg.bannerDurationMs : 4000;
     settingsSavedMsg.style.display = "none";
   });
   settingsOpen = true;
@@ -50,8 +52,14 @@ settingsToggle.addEventListener("click", () => {
 settingsCancel.addEventListener("click", closeSettings);
 
 settingsSave.addEventListener("click", () => {
-  const domain = cfgDomain.value.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
-  const rawSelectors = cfgSelectors.value.split("\n").map(s => s.trim()).filter(Boolean);
+  const domain = cfgDomain.value
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "");
+  const rawSelectors = cfgSelectors.value
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
   const restartMinutes = Math.max(1, parseInt(cfgRestart.value, 10) || 15);
   const bannerDurationMs = Math.max(500, parseInt(cfgBanner.value, 10) || 4000);
 
@@ -60,13 +68,17 @@ settingsSave.addEventListener("click", () => {
     const newConfig = {
       ...existing,
       targetDomain: domain,
-      buttonSelectors: rawSelectors.length ? rawSelectors : existing.buttonSelectors || [],
+      buttonSelectors: rawSelectors.length
+        ? rawSelectors
+        : existing.buttonSelectors || [],
       restartMinutes,
       bannerDurationMs,
     };
     chrome.storage.local.set({ config: newConfig }, () => {
       settingsSavedMsg.style.display = "block";
-      setTimeout(() => { settingsSavedMsg.style.display = "none"; }, 3000);
+      setTimeout(() => {
+        settingsSavedMsg.style.display = "none";
+      }, 3000);
 
       domainInfo.textContent = `Monitoring: ${domain || "—"}`;
       targetHost = domain;
@@ -79,6 +91,7 @@ let currentTabId = null;
 let currentHost = "";
 let targetHost = "";
 let currentFields = [];
+let lastStoppedState = null;
 
 async function init() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -139,8 +152,7 @@ function pollState() {
         statusBadge.className = "badge badge-stopped";
         stopBtn.style.display = "none";
         restartBtn.style.display = "flex";
-        restartNote.textContent =
-          "Extension is stopped. Auto-restarts in 15 minutes, or click Restart.";
+        restartNote.textContent = `Extension is stopped. Auto-restarts in ${config.restartMinutes || 15} minutes, or click Restart.`;
       } else {
         statusBadge.textContent = "Active";
         statusBadge.className = "badge badge-active";
@@ -149,12 +161,15 @@ function pollState() {
         restartBtn.style.display = "none";
         restartNote.textContent =
           "Restarts automatically on page refresh or new tab.";
-        stopBtn.innerHTML = `
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-          </svg>
-          Stop Extension`;
+        if (lastStoppedState !== false) {
+          stopBtn.innerHTML = `
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            </svg>
+            Stop Extension`;
+        }
       }
+      lastStoppedState = stopped;
 
       // Update changed fields list
       currentFields = fields;

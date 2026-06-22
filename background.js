@@ -72,16 +72,18 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   });
 });
 
-chrome.runtime.onMessage.addListener((message, sender) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "GET_TAB_ID") {
+    sendResponse({ tabId: sender.tab?.id });
+    return;
+  }
+
   const tabId = sender.tab?.id || message?.tabId;
   if (!tabId) return;
 
   if (message.type === "START_EXTENSION") {
     chrome.storage.local.set({ [`stopped_${tabId}`]: false }, () => {
       setBadgeActive(tabId);
-      chrome.tabs.sendMessage(tabId, { type: "START" }, () => {
-        chrome.runtime.lastError;
-      });
     });
     return;
   }
@@ -89,13 +91,18 @@ chrome.runtime.onMessage.addListener((message, sender) => {
   if (message.type === "STOP_EXTENSION") {
     stopBlink(tabId);
     chrome.storage.local.get("config", (data) => {
-      const restartMinutes = (data.config && data.config.restartMinutes) ? data.config.restartMinutes : 15;
+      const restartMinutes =
+        data.config && data.config.restartMinutes
+          ? data.config.restartMinutes
+          : 15;
       chrome.storage.local.set({ [`stopped_${tabId}`]: true }, () => {
         setBadgeStopped(tabId);
         chrome.tabs.sendMessage(tabId, { type: "STOP" }, () => {
           chrome.runtime.lastError;
         });
-        chrome.alarms.create(`restart_${tabId}`, { delayInMinutes: restartMinutes });
+        chrome.alarms.create(`restart_${tabId}`, {
+          delayInMinutes: restartMinutes,
+        });
       });
     });
     return;
