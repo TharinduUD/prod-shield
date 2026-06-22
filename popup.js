@@ -57,7 +57,8 @@ settingsSave.addEventListener("click", () => {
   const domain = cfgDomain.value
     .trim()
     .replace(/^https?:\/\//, "")
-    .replace(/\/$/, "");
+    .replace(/\/$/, "")
+    .replace(/:\d+$/, "");
   const rawSelectors = cfgSelectors.value
     .split("\n")
     .map((s) => s.trim())
@@ -87,13 +88,17 @@ settingsSave.addEventListener("click", () => {
       domainInfo.textContent = `Monitoring: ${domain || "—"}`;
       targetHost = domain;
 
-      if (currentTabId) {
-        chrome.tabs.sendMessage(
-          currentTabId,
-          { type: "CONFIG_UPDATED", config: newConfig },
-          () => { chrome.runtime.lastError; }
-        );
-      }
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach((tab) => {
+          if (tab.id) {
+            chrome.tabs.sendMessage(
+              tab.id,
+              { type: "CONFIG_UPDATED", config: newConfig },
+              () => { chrome.runtime.lastError; }
+            );
+          }
+        });
+      });
     });
   });
 });
@@ -117,7 +122,8 @@ async function init() {
     const config = data.config || {};
     targetHost = (config.targetDomain || "")
       .replace(/^https?:\/\//, "")
-      .replace(/\/$/, "");
+      .replace(/\/$/, "")
+      .replace(/:\d+$/, "");
     domainInfo.textContent = `Monitoring: ${config.targetDomain || "—"}`;
   });
 
@@ -136,13 +142,10 @@ function pollState() {
       const stopped = !!data[`stopped_${currentTabId}`];
       const fields = data[`changedFields_${currentTabId}`] || [];
 
-      // Update targetHost if config loaded after init
-      if (!targetHost && config.targetDomain) {
-        targetHost = config.targetDomain
-          .replace(/^https?:\/\//, "")
-          .replace(/\/$/, "");
-        domainInfo.textContent = `Monitoring: ${config.targetDomain}`;
-      }
+      targetHost = (config.targetDomain || "")
+        .replace(/^https?:\/\//, "")
+        .replace(/\/$/, "")
+        .replace(/:\d+$/, "");
 
       const isOnTarget =
         targetHost &&
@@ -322,7 +325,6 @@ exportBtn.addEventListener("click", () => {
 
 stopBtn.addEventListener("click", () => {
   if (!currentTabId) return;
-  console.log("currentTabId", currentTabId);
   chrome.runtime.sendMessage({ type: "STOP_EXTENSION", tabId: currentTabId });
 });
 

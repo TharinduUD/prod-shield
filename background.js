@@ -24,8 +24,8 @@ function startBlink(tabId) {
       delete blinkTimers[tabId];
       chrome.storage.local.get([`changedFields_${tabId}`], (data) => {
         const count = (data[`changedFields_${tabId}`] || []).length;
-        chrome.action.setBadgeText({ text: String(count), tabId });
-        chrome.action.setBadgeBackgroundColor({ color: "#e53e3e", tabId });
+        chrome.action.setBadgeText({ text: count > 0 ? String(count) : "", tabId });
+        if (count > 0) chrome.action.setBadgeBackgroundColor({ color: "#e53e3e", tabId });
       });
     }
   }, 200);
@@ -65,11 +65,11 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (!alarm.name.startsWith("restart_")) return;
   const tabId = parseInt(alarm.name.replace("restart_", ""));
 
-  setBadgeActive(tabId);
-  chrome.storage.local.set({ [`stopped_${tabId}`]: false });
-  chrome.alarms.clear(`restart_${tabId}`);
-  chrome.tabs.sendMessage(tabId, { type: "RESTART" }, () => {
-    chrome.runtime.lastError;
+  chrome.storage.local.set({ [`stopped_${tabId}`]: false }, () => {
+    chrome.alarms.clear(`restart_${tabId}`);
+    chrome.tabs.sendMessage(tabId, { type: "RESTART" }, () => {
+      chrome.runtime.lastError;
+    });
   });
 });
 
@@ -131,6 +131,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (count > 0) {
       chrome.action.setBadgeText({ text: String(count), tabId });
       startBlink(tabId);
+    } else {
+      stopBlink(tabId);
+      chrome.action.setBadgeText({ text: "", tabId });
     }
     chrome.storage.local.set({
       [`changedFields_${tabId}`]: message.changedFields,

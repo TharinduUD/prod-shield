@@ -8,7 +8,7 @@
   const currentHost = location.hostname;
 
   function isOnTargetDomain(targetDomain) {
-    const target = targetDomain.replace(/^https?:\/\//, "").replace(/\/$/, "");
+    const target = targetDomain.replace(/^https?:\/\//, "").replace(/\/$/, "").replace(/:\d+$/, "");
     return currentHost === target || currentHost.endsWith("." + target);
   }
 
@@ -308,6 +308,7 @@
     if (initialized) return;
 
     chrome.storage.local.get("config", (data) => {
+      if (initialized) return;
       config = data.config || {
         targetDomain: "https://www.test.com",
         buttonSelectors: [".test-btn"],
@@ -351,6 +352,7 @@
     }
 
     if (msg.type === "CONFIG_UPDATED") {
+      if (!msg.config) return;
       config = msg.config;
 
       if (!isOnTargetDomain(config.targetDomain)) {
@@ -430,10 +432,11 @@
       flex: "1",
       justifyContent: "center",
     });
-    content.innerHTML = `<span style="font-size:18px;line-height:1;">⚠️</span><span>You are in <strong>Production</strong> — <i>Prod Shield</i></span>`;
+    content.innerHTML = `<span style="font-size:18px;line-height:1;">⚠️</span><span>You are on <strong>${currentHost}</strong> — <i>Prod Shield</i></span>`;
 
     const closeBtn = document.createElement("button");
-    closeBtn.title = "Dismiss for 1 minute";
+    const snoozeMin = (config && config.bannerDurationMin) || 1;
+    closeBtn.title = `Dismiss for ${snoozeMin} minute${snoozeMin !== 1 ? "s" : ""}`;
     closeBtn.textContent = "✕";
     Object.assign(closeBtn.style, {
       background: "rgba(255,255,255,0.15)",
