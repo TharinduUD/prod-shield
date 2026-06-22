@@ -116,7 +116,15 @@
 
           <div class="settings-field">
             <label class="settings-label" for="cfg-domain">Target Domain</label>
-            <input id="cfg-domain" class="settings-input" type="text" placeholder="e.g. ds.mm.us" />
+            <input id="cfg-domain" class="settings-input" type="text" placeholder="e.g. www.test.com" />
+          </div>
+
+          <div class="settings-field settings-toggle-row">
+            <span class="settings-label" style="margin-bottom:0;">Disable save buttons</span>
+            <label class="toggle-switch">
+              <input id="cfg-disable-buttons" type="checkbox" checked />
+              <span class="toggle-slider"></span>
+            </label>
           </div>
 
           <div class="settings-field">
@@ -124,7 +132,7 @@
               Disable Button Selectors
               <span class="settings-hint">one per line</span>
             </label>
-            <textarea id="cfg-selectors" class="settings-input settings-textarea" rows="3" placeholder="[data-testid='save-button']"></textarea>
+            <textarea id="cfg-selectors" class="settings-input settings-textarea" rows="3" placeholder=".test-btn"></textarea>
           </div>
 
           <div class="settings-row">
@@ -133,8 +141,8 @@
               <input id="cfg-restart" class="settings-input" type="number" min="1" max="1440" placeholder="15" />
             </div>
             <div class="settings-field" style="flex:1;">
-              <label class="settings-label" for="cfg-banner">Banner duration(ms)</label>
-              <input id="cfg-banner" class="settings-input" type="number" min="500" max="30000" placeholder="4000" />
+              <label class="settings-label" for="cfg-banner">Close snooze(min)</label>
+              <input id="cfg-banner" class="settings-input" type="number" min="1" max="60" placeholder="1" />
             </div>
           </div>
 

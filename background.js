@@ -1,8 +1,9 @@
 const DEFAULT_CONFIG = {
-  targetDomain: "ds.mm.us",
-  buttonSelectors: ["[data-testid='page-header-save-button']"],
+  targetDomain: "https://www.test.com",
+  buttonSelectors: [".test-btn"],
+  disableButtonsEnabled: true,
   restartMinutes: 15,
-  bannerDurationMs: 4000,
+  bannerDurationMin: 1,
 };
 
 const blinkTimers = {};
@@ -81,6 +82,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const tabId = sender.tab?.id || message?.tabId;
   if (!tabId) return;
 
+  if (message.type === "DEACTIVATED") {
+    stopBlink(tabId);
+    setBadgeClear(tabId);
+    return;
+  }
+
   if (message.type === "START_EXTENSION") {
     chrome.storage.local.set({ [`stopped_${tabId}`]: false }, () => {
       setBadgeActive(tabId);
@@ -135,9 +142,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === "loading") {
     stopBlink(tabId);
-    chrome.alarms.clear(`restart_${tabId}`);
-    chrome.storage.local.remove([`stopped_${tabId}`, `changedFields_${tabId}`]);
-    setBadgeClear(tabId);
+    chrome.storage.local.get(`stopped_${tabId}`, (data) => {
+      if (data[`stopped_${tabId}`]) {
+        chrome.storage.local.remove([`changedFields_${tabId}`]);
+        setBadgeStopped(tabId);
+      } else {
+        chrome.alarms.clear(`restart_${tabId}`);
+        chrome.storage.local.remove([
+          `stopped_${tabId}`,
+          `changedFields_${tabId}`,
+        ]);
+        setBadgeClear(tabId);
+      }
+    });
   }
 });
 

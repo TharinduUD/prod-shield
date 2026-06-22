@@ -214,7 +214,7 @@
   }
 
   function disableButtons() {
-    if (!config || !config.buttonSelectors || stopped) return;
+    if (!config || !config.buttonSelectors || stopped || config.disableButtonsEnabled === false) return;
 
     config.buttonSelectors.forEach((sel) => {
       try {
@@ -290,6 +290,8 @@
   }
 
   let bannerInterval = null;
+  let bannerSnoozedUntil = 0;
+  let bannerSnoozeTimeout = null;
 
   function startExtension() {
     stopped = false;
@@ -297,11 +299,9 @@
     disableButtons();
     trackAll();
     startObserver();
-    const bannerMs =
-      config && config.bannerDurationMs ? config.bannerDurationMs : 4000;
-    showProductionBanner(bannerMs);
+    showProductionBanner();
     if (bannerInterval) clearInterval(bannerInterval);
-    bannerInterval = setInterval(() => showProductionBanner(bannerMs), 30000);
+    bannerInterval = setInterval(showProductionBanner, 30000);
   }
 
   function init() {
@@ -309,9 +309,9 @@
 
     chrome.storage.local.get("config", (data) => {
       config = data.config || {
-        targetDomain: "ds.mm.us",
-        buttonSelectors: ["[data-testid='page-header-save-button']"],
-        execution: true,
+        targetDomain: "https://www.test.com",
+        buttonSelectors: [".test-btn"],
+        disableButtonsEnabled: true,
       };
 
       if (!isOnTargetDomain(config.targetDomain)) return;
@@ -329,27 +329,61 @@
         });
       });
 
-      chrome.runtime.onMessage.addListener((msg) => {
-        if (msg.type === "STOP") {
-          stopped = true;
+    });
+  }
+
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.type === "STOP" && initialized) {
+      stopped = true;
+      enableButtons();
+      if (observer) observer.disconnect();
+      if (bannerInterval) { clearInterval(bannerInterval); bannerInterval = null; }
+      if (bannerSnoozeTimeout) { clearTimeout(bannerSnoozeTimeout); bannerSnoozeTimeout = null; }
+      bannerSnoozedUntil = 0;
+      const existingBanner = document.getElementById("prod-shield-banner");
+      if (existingBanner) existingBanner.remove();
+      changedFields = {};
+      reportChanges();
+    }
+
+    if (msg.type === "RESTART" && initialized) {
+      startExtension();
+    }
+
+    if (msg.type === "CONFIG_UPDATED") {
+      config = msg.config;
+
+      if (!isOnTargetDomain(config.targetDomain)) {
+        if (initialized) {
           enableButtons();
-          if (observer) observer.disconnect();
-          if (bannerInterval) {
-            clearInterval(bannerInterval);
-            bannerInterval = null;
-          }
+          if (observer) { observer.disconnect(); observer = null; }
+          if (bannerInterval) { clearInterval(bannerInterval); bannerInterval = null; }
+          if (bannerSnoozeTimeout) { clearTimeout(bannerSnoozeTimeout); bannerSnoozeTimeout = null; }
+          bannerSnoozedUntil = 0;
           const existingBanner = document.getElementById("prod-shield-banner");
           if (existingBanner) existingBanner.remove();
           changedFields = {};
           reportChanges();
+          initialized = false;
+          chrome.runtime.sendMessage({ type: "DEACTIVATED" });
         }
-
-        if (msg.type === "RESTART") {
-          startExtension();
+      } else if (!initialized) {
+        initialized = true;
+        chrome.runtime.sendMessage({ type: "GET_TAB_ID" }, (response) => {
+          const tabId = response && response.tabId;
+          chrome.storage.local.get(`stopped_${tabId}`, (data) => {
+            stopped = !!data[`stopped_${tabId}`];
+            if (!stopped) startExtension();
+          });
+        });
+      } else {
+        enableButtons();
+        if (!stopped && config.disableButtonsEnabled !== false) {
+          disableButtons();
         }
-      });
-    });
-  }
+      }
+    }
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
@@ -357,18 +391,12 @@
     init();
   }
 
-  function showProductionBanner(duration) {
-    const bannerDuration =
-      typeof duration === "number" && duration > 0 ? duration : 4000;
+  function showProductionBanner() {
+    if (Date.now() < bannerSnoozedUntil) return;
     if (document.getElementById("prod-shield-banner")) return;
 
     const banner = document.createElement("div");
     banner.id = "prod-shield-banner";
-    banner.innerHTML = `
-    <span style="font-size:18px;line-height:1;">⚠️</span>
-    <span>You are in <strong>Production</strong> — <i>Prod Shield</i></span>
-    <div id="prod-shield-timer-bar"></div>
-  `;
 
     Object.assign(banner.style, {
       position: "fixed",
@@ -380,48 +408,65 @@
       alignItems: "center",
       justifyContent: "center",
       gap: "10px",
-      padding: "12px 24px",
+      padding: "10px 16px",
       background: "linear-gradient(90deg, #7f1d1d, #991b1b, #7f1d1d)",
       color: "#fef2f2",
-      fontFamily:
-        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       fontSize: "14px",
       fontWeight: "600",
       letterSpacing: "0.2px",
       boxShadow: "0 4px 24px rgba(220,38,38,0.5)",
       borderBottom: "2px solid #ef4444",
-      overflow: "hidden",
       transition: "opacity 0.6s ease, transform 0.6s ease",
       opacity: "0",
       transform: "translateY(-100%)",
     });
 
-    const timerBar = banner.querySelector("#prod-shield-timer-bar");
-    Object.assign(timerBar.style, {
-      position: "absolute",
-      bottom: "0",
-      left: "0",
-      height: "3px",
-      width: "100%",
-      background: "#ef4444",
-      transformOrigin: "left",
-      transition: `transform ${bannerDuration / 1000}s linear`,
+    const content = document.createElement("span");
+    Object.assign(content.style, {
+      display: "flex",
+      alignItems: "center",
+      gap: "10px",
+      flex: "1",
+      justifyContent: "center",
+    });
+    content.innerHTML = `<span style="font-size:18px;line-height:1;">⚠️</span><span>You are in <strong>Production</strong> — <i>Prod Shield</i></span>`;
+
+    const closeBtn = document.createElement("button");
+    closeBtn.title = "Dismiss for 1 minute";
+    closeBtn.textContent = "✕";
+    Object.assign(closeBtn.style, {
+      background: "rgba(255,255,255,0.15)",
+      border: "1px solid rgba(255,255,255,0.3)",
+      borderRadius: "4px",
+      color: "#fef2f2",
+      fontSize: "12px",
+      fontWeight: "700",
+      cursor: "pointer",
+      padding: "2px 7px",
+      lineHeight: "1.4",
+      flexShrink: "0",
     });
 
+    closeBtn.addEventListener("click", () => {
+      banner.style.opacity = "0";
+      banner.style.transform = "translateY(-100%)";
+      setTimeout(() => banner.remove(), 650);
+      const snoozeMs = ((config && config.bannerDurationMin) || 1) * 60000;
+      bannerSnoozedUntil = Date.now() + snoozeMs;
+      if (bannerSnoozeTimeout) clearTimeout(bannerSnoozeTimeout);
+      bannerSnoozeTimeout = setTimeout(showProductionBanner, snoozeMs);
+    });
+
+    banner.appendChild(content);
+    banner.appendChild(closeBtn);
     document.body.appendChild(banner);
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         banner.style.opacity = "1";
         banner.style.transform = "translateY(0)";
-        timerBar.style.transform = "scaleX(0)";
       });
     });
-
-    setTimeout(() => {
-      banner.style.opacity = "0";
-      banner.style.transform = "translateY(-100%)";
-      setTimeout(() => banner.remove(), 650);
-    }, bannerDuration);
   }
 })();

@@ -14,6 +14,7 @@ const cfgDomain = document.getElementById("cfg-domain");
 const cfgSelectors = document.getElementById("cfg-selectors");
 const cfgRestart = document.getElementById("cfg-restart");
 const cfgBanner = document.getElementById("cfg-banner");
+const cfgDisableButtons = document.getElementById("cfg-disable-buttons");
 const settingsSave = document.getElementById("settings-save");
 const settingsCancel = document.getElementById("settings-cancel");
 const settingsSavedMsg = document.getElementById("settings-saved-msg");
@@ -28,7 +29,8 @@ function openSettings() {
     cfgRestart.value =
       cfg.restartMinutes !== undefined ? cfg.restartMinutes : 15;
     cfgBanner.value =
-      cfg.bannerDurationMs !== undefined ? cfg.bannerDurationMs : 4000;
+      cfg.bannerDurationMin !== undefined ? cfg.bannerDurationMin : 1;
+    cfgDisableButtons.checked = cfg.disableButtonsEnabled !== false;
     settingsSavedMsg.style.display = "none";
   });
   settingsOpen = true;
@@ -61,7 +63,8 @@ settingsSave.addEventListener("click", () => {
     .map((s) => s.trim())
     .filter(Boolean);
   const restartMinutes = Math.max(1, parseInt(cfgRestart.value, 10) || 15);
-  const bannerDurationMs = Math.max(500, parseInt(cfgBanner.value, 10) || 4000);
+  const bannerDurationMin = Math.max(1, parseInt(cfgBanner.value, 10) || 1);
+  const disableButtonsEnabled = cfgDisableButtons.checked;
 
   chrome.storage.local.get("config", (data) => {
     const existing = data.config || {};
@@ -71,8 +74,9 @@ settingsSave.addEventListener("click", () => {
       buttonSelectors: rawSelectors.length
         ? rawSelectors
         : existing.buttonSelectors || [],
+      disableButtonsEnabled,
       restartMinutes,
-      bannerDurationMs,
+      bannerDurationMin,
     };
     chrome.storage.local.set({ config: newConfig }, () => {
       settingsSavedMsg.style.display = "block";
@@ -82,6 +86,14 @@ settingsSave.addEventListener("click", () => {
 
       domainInfo.textContent = `Monitoring: ${domain || "—"}`;
       targetHost = domain;
+
+      if (currentTabId) {
+        chrome.tabs.sendMessage(
+          currentTabId,
+          { type: "CONFIG_UPDATED", config: newConfig },
+          () => { chrome.runtime.lastError; }
+        );
+      }
     });
   });
 });
@@ -157,10 +169,15 @@ function pollState() {
         statusBadge.textContent = "Active";
         statusBadge.className = "badge badge-active";
         stopBtn.style.display = "flex";
-        stopBtn.disabled = false;
         restartBtn.style.display = "none";
-        restartNote.textContent =
-          "Restarts automatically on page refresh or new tab.";
+        if (fields.length > 0) {
+          stopBtn.disabled = true;
+          restartNote.textContent = "Export change logs before stopping.";
+        } else {
+          stopBtn.disabled = false;
+          restartNote.textContent =
+            "Restarts automatically on page refresh or new tab.";
+        }
         if (lastStoppedState !== false) {
           stopBtn.innerHTML = `
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
