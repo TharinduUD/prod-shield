@@ -2,6 +2,9 @@
 
 A Chrome / Firefox browser extension that protects you from accidental changes on production websites. It tracks form field edits, disables configured buttons, and shows a persistent warning banner whenever you are on the monitored domain.
 
+<img src="./images/popup.png" alt="Prod Shield popup" />
+<img src="./images/banner.png" alt="Prod Shield banner" />
+
 ---
 
 ## Table of Contents
@@ -155,16 +158,16 @@ Print or save the page as a PDF from your browser's print dialog.
 
 Open settings by clicking the **gear icon** in the top-right corner of the popup. Click **Save** to apply — the popup closes and changes take effect immediately across all open tabs on the monitored domain with no page reload required. Click **Cancel** to discard changes.
 
-| Setting                      | Description                                                                                                                                           | Default        |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| **Target Domain**            | The hostname to monitor. Subdomains are included automatically. Do not include the protocol (`https://`) or a trailing slash.                         | `www.test.com` |
-| **Page Identifier**          | Toggle to restrict activation to a specific page. When enabled, enter a CSS selector that must be present for the extension to activate.              | Off            |
-| **Identifier Selector**      | CSS selector for the page element (class, ID, or data attribute). Only shown when Page Identifier is enabled.                                         | _(empty)_      |
-| **Change Log**               | Toggle whether Prod Shield tracks field changes and shows them in the Changed Fields panel.                                                            | On             |
-| **Disable buttons**          | Toggle whether Prod Shield disables the buttons matched by your selectors.                                                                            | On             |
-| **Disable Button Selectors** | CSS selectors (one per line, or comma-separated) for buttons to disable on the production page. Only shown when Disable buttons is enabled.           | `.test-btn`    |
-| **Auto-restart (min)**       | Minutes after stopping before the extension automatically restarts. Range: 1–1440.                                                                    | `15`           |
-| **Close snooze (min)**       | Minutes the banner stays hidden after clicking ✕. Range: 1–60.                                                                                        | `1`            |
+| Setting                      | Description                                                                                                                                 | Default        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| **Target Domain**            | The hostname to monitor. Subdomains are included automatically. Do not include the protocol (`https://`) or a trailing slash.               | `www.test.com` |
+| **Page Identifier**          | Toggle to restrict activation to a specific page. When enabled, enter a CSS selector that must be present for the extension to activate.    | Off            |
+| **Identifier Selector**      | CSS selector for the page element (class, ID, or data attribute). Only shown when Page Identifier is enabled.                               | _(empty)_      |
+| **Change Log**               | Toggle whether Prod Shield tracks field changes and shows them in the Changed Fields panel.                                                 | On             |
+| **Disable buttons**          | Toggle whether Prod Shield disables the buttons matched by your selectors.                                                                  | On             |
+| **Disable Button Selectors** | CSS selectors (one per line, or comma-separated) for buttons to disable on the production page. Only shown when Disable buttons is enabled. | `.test-btn`    |
+| **Auto-restart (min)**       | Minutes after stopping before the extension automatically restarts. Range: 1–1440.                                                          | `15`           |
+| **Close snooze (min)**       | Minutes the banner stays hidden after clicking ✕. Range: 1–60.                                                                              | `1`            |
 
 ---
 
