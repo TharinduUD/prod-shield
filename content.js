@@ -4,12 +4,26 @@
   let changedFields = {};
   let observer = null;
   let initialized = false;
+  let identifierWatcher = null;
 
   const currentHost = location.hostname;
 
   function isOnTargetDomain(targetDomain) {
-    const target = targetDomain.replace(/^https?:\/\//, "").replace(/\/$/, "").replace(/:\d+$/, "");
+    const target = targetDomain
+      .replace(/^https?:\/\//, "")
+      .replace(/\/$/, "")
+      .replace(/:\d+$/, "");
     return currentHost === target || currentHost.endsWith("." + target);
+  }
+
+  function isOnTargetPage() {
+    if (!config || !config.pageIdentifierEnabled || !config.pageIdentifier)
+      return true;
+    try {
+      return !!document.querySelector(config.pageIdentifier);
+    } catch (e) {
+      return false;
+    }
   }
 
   function getFieldLabel(el) {
@@ -214,7 +228,13 @@
   }
 
   function disableButtons() {
-    if (!config || !config.buttonSelectors || stopped || config.disableButtonsEnabled === false) return;
+    if (
+      !config ||
+      !config.buttonSelectors ||
+      stopped ||
+      config.disableButtonsEnabled === false
+    )
+      return;
 
     config.buttonSelectors.forEach((sel) => {
       try {
@@ -270,6 +290,24 @@
       });
 
       if (needsRescan) {
+        if (!isOnTargetPage()) {
+          enableButtons();
+          observer.disconnect();
+          observer = null;
+          if (bannerInterval) {
+            clearInterval(bannerInterval);
+            bannerInterval = null;
+          }
+          if (bannerSnoozeTimeout) {
+            clearTimeout(bannerSnoozeTimeout);
+            bannerSnoozeTimeout = null;
+          }
+          bannerSnoozedUntil = 0;
+          const gone = document.getElementById("prod-shield-banner");
+          if (gone) gone.remove();
+          startIdentifierWatcher();
+          return;
+        }
         disableButtons();
         trackAll();
       }
@@ -286,6 +324,22 @@
         "value",
         "checked",
       ],
+    });
+  }
+
+  function startIdentifierWatcher() {
+    if (identifierWatcher) identifierWatcher.disconnect();
+    identifierWatcher = new MutationObserver(() => {
+      if (stopped) return;
+      if (isOnTargetPage()) {
+        identifierWatcher.disconnect();
+        identifierWatcher = null;
+        startExtension();
+      }
+    });
+    identifierWatcher.observe(document.body, {
+      childList: true,
+      subtree: true,
     });
   }
 
@@ -325,11 +379,14 @@
         chrome.storage.local.get(tabKey, (stoppedData) => {
           stopped = !!stoppedData[tabKey];
           if (!stopped) {
-            startExtension();
+            if (isOnTargetPage()) {
+              startExtension();
+            } else {
+              startIdentifierWatcher();
+            }
           }
         });
       });
-
     });
   }
 
@@ -337,9 +394,19 @@
     if (msg.type === "STOP" && initialized) {
       stopped = true;
       enableButtons();
+      if (identifierWatcher) {
+        identifierWatcher.disconnect();
+        identifierWatcher = null;
+      }
       if (observer) observer.disconnect();
-      if (bannerInterval) { clearInterval(bannerInterval); bannerInterval = null; }
-      if (bannerSnoozeTimeout) { clearTimeout(bannerSnoozeTimeout); bannerSnoozeTimeout = null; }
+      if (bannerInterval) {
+        clearInterval(bannerInterval);
+        bannerInterval = null;
+      }
+      if (bannerSnoozeTimeout) {
+        clearTimeout(bannerSnoozeTimeout);
+        bannerSnoozeTimeout = null;
+      }
       bannerSnoozedUntil = 0;
       const existingBanner = document.getElementById("prod-shield-banner");
       if (existingBanner) existingBanner.remove();
@@ -348,7 +415,11 @@
     }
 
     if (msg.type === "RESTART" && initialized) {
-      startExtension();
+      if (isOnTargetPage()) {
+        startExtension();
+      } else {
+        startIdentifierWatcher();
+      }
     }
 
     if (msg.type === "CONFIG_UPDATED") {
@@ -358,9 +429,22 @@
       if (!isOnTargetDomain(config.targetDomain)) {
         if (initialized) {
           enableButtons();
-          if (observer) { observer.disconnect(); observer = null; }
-          if (bannerInterval) { clearInterval(bannerInterval); bannerInterval = null; }
-          if (bannerSnoozeTimeout) { clearTimeout(bannerSnoozeTimeout); bannerSnoozeTimeout = null; }
+          if (identifierWatcher) {
+            identifierWatcher.disconnect();
+            identifierWatcher = null;
+          }
+          if (observer) {
+            observer.disconnect();
+            observer = null;
+          }
+          if (bannerInterval) {
+            clearInterval(bannerInterval);
+            bannerInterval = null;
+          }
+          if (bannerSnoozeTimeout) {
+            clearTimeout(bannerSnoozeTimeout);
+            bannerSnoozeTimeout = null;
+          }
           bannerSnoozedUntil = 0;
           const existingBanner = document.getElementById("prod-shield-banner");
           if (existingBanner) existingBanner.remove();
@@ -375,13 +459,50 @@
           const tabId = response && response.tabId;
           chrome.storage.local.get(`stopped_${tabId}`, (data) => {
             stopped = !!data[`stopped_${tabId}`];
-            if (!stopped) startExtension();
+            if (!stopped) {
+              if (isOnTargetPage()) {
+                startExtension();
+              } else {
+                startIdentifierWatcher();
+              }
+            }
           });
         });
       } else {
-        enableButtons();
-        if (!stopped && config.disableButtonsEnabled !== false) {
-          disableButtons();
+        // Domain matches and already initialized — re-apply identifier + button state
+        if (isOnTargetPage()) {
+          if (identifierWatcher) {
+            identifierWatcher.disconnect();
+            identifierWatcher = null;
+          }
+          enableButtons();
+          if (!stopped) {
+            if (config.disableButtonsEnabled !== false) disableButtons();
+            if (!observer) startObserver();
+            if (!bannerInterval) {
+              showProductionBanner();
+              bannerInterval = setInterval(showProductionBanner, 30000);
+            }
+          }
+        } else {
+          // Identifier no longer matches — soft-deactivate but stay initialized
+          enableButtons();
+          if (observer) {
+            observer.disconnect();
+            observer = null;
+          }
+          if (bannerInterval) {
+            clearInterval(bannerInterval);
+            bannerInterval = null;
+          }
+          if (bannerSnoozeTimeout) {
+            clearTimeout(bannerSnoozeTimeout);
+            bannerSnoozeTimeout = null;
+          }
+          bannerSnoozedUntil = 0;
+          const existingBanner = document.getElementById("prod-shield-banner");
+          if (existingBanner) existingBanner.remove();
+          if (!stopped) startIdentifierWatcher();
         }
       }
     }
@@ -401,10 +522,12 @@
     banner.id = "prod-shield-banner";
 
     Object.assign(banner.style, {
+      width: "600px",
+      maxWidth: "100%",
       position: "fixed",
       top: "0",
-      left: "0",
-      right: "0",
+      left: "50%",
+      right: "50%",
       zIndex: "2147483647",
       display: "flex",
       alignItems: "center",
@@ -413,15 +536,17 @@
       padding: "10px 16px",
       background: "linear-gradient(90deg, #7f1d1d, #991b1b, #7f1d1d)",
       color: "#fef2f2",
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontFamily:
+        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       fontSize: "14px",
       fontWeight: "600",
       letterSpacing: "0.2px",
       boxShadow: "0 4px 24px rgba(220,38,38,0.5)",
       borderBottom: "2px solid #ef4444",
-      transition: "opacity 0.6s ease, transform 0.6s ease",
+      borderRadius: "0px 0px 8px 8px",
+      transition: "opacity 0.6s ease",
       opacity: "0",
-      transform: "translateY(-100%)",
+      transform: "translate(-50%, -100%)",
     });
 
     const content = document.createElement("span");
@@ -453,7 +578,7 @@
 
     closeBtn.addEventListener("click", () => {
       banner.style.opacity = "0";
-      banner.style.transform = "translateY(-100%)";
+      banner.style.transform = "translate(-50%, -100%)";
       setTimeout(() => banner.remove(), 650);
       const snoozeMs = ((config && config.bannerDurationMin) || 1) * 60000;
       bannerSnoozedUntil = Date.now() + snoozeMs;
@@ -468,7 +593,7 @@
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         banner.style.opacity = "1";
-        banner.style.transform = "translateY(0)";
+        banner.style.transform = "translate(-50%, 0)";
       });
     });
   }

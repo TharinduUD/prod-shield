@@ -120,6 +120,21 @@
           </div>
 
           <div class="settings-field settings-toggle-row">
+            <span class="settings-label" style="margin-bottom:0;">Page Identifier</span>
+            <label class="toggle-switch">
+              <input id="cfg-identifier-enabled" type="checkbox" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="settings-field" id="identifier-field-wrap" style="display:none;">
+            <label class="settings-label" for="cfg-identifier">
+              Identifier Selector
+              <span class="settings-hint">class, id, or [data-attr]</span>
+            </label>
+            <input id="cfg-identifier" class="settings-input" type="text" placeholder=".admin-panel, #app-root, [data-env='prod']" />
+          </div>
+
+          <div class="settings-field settings-toggle-row">
             <span class="settings-label" style="margin-bottom:0;">Disable save buttons</span>
             <label class="toggle-switch">
               <input id="cfg-disable-buttons" type="checkbox" checked />

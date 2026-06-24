@@ -4,6 +4,8 @@ const DEFAULT_CONFIG = {
   disableButtonsEnabled: true,
   restartMinutes: 15,
   bannerDurationMin: 1,
+  pageIdentifierEnabled: false,
+  pageIdentifier: "",
 };
 
 const blinkTimers = {};

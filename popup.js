@@ -15,6 +15,9 @@ const cfgSelectors = document.getElementById("cfg-selectors");
 const cfgRestart = document.getElementById("cfg-restart");
 const cfgBanner = document.getElementById("cfg-banner");
 const cfgDisableButtons = document.getElementById("cfg-disable-buttons");
+const cfgIdentifierEnabled = document.getElementById("cfg-identifier-enabled");
+const cfgIdentifier = document.getElementById("cfg-identifier");
+const identifierFieldWrap = document.getElementById("identifier-field-wrap");
 const settingsSave = document.getElementById("settings-save");
 const settingsCancel = document.getElementById("settings-cancel");
 const settingsSavedMsg = document.getElementById("settings-saved-msg");
@@ -31,6 +34,9 @@ function openSettings() {
     cfgBanner.value =
       cfg.bannerDurationMin !== undefined ? cfg.bannerDurationMin : 1;
     cfgDisableButtons.checked = cfg.disableButtonsEnabled !== false;
+    cfgIdentifierEnabled.checked = cfg.pageIdentifierEnabled === true;
+    cfgIdentifier.value = cfg.pageIdentifier || "";
+    identifierFieldWrap.style.display = cfg.pageIdentifierEnabled ? "block" : "none";
     settingsSavedMsg.style.display = "none";
   });
   settingsOpen = true;
@@ -53,6 +59,10 @@ settingsToggle.addEventListener("click", () => {
 
 settingsCancel.addEventListener("click", closeSettings);
 
+cfgIdentifierEnabled.addEventListener("change", () => {
+  identifierFieldWrap.style.display = cfgIdentifierEnabled.checked ? "block" : "none";
+});
+
 settingsSave.addEventListener("click", () => {
   const domain = cfgDomain.value
     .trim()
@@ -66,6 +76,8 @@ settingsSave.addEventListener("click", () => {
   const restartMinutes = Math.max(1, parseInt(cfgRestart.value, 10) || 15);
   const bannerDurationMin = Math.max(1, parseInt(cfgBanner.value, 10) || 1);
   const disableButtonsEnabled = cfgDisableButtons.checked;
+  const pageIdentifierEnabled = cfgIdentifierEnabled.checked;
+  const pageIdentifier = cfgIdentifier.value.trim();
 
   chrome.storage.local.get("config", (data) => {
     const existing = data.config || {};
@@ -78,6 +90,8 @@ settingsSave.addEventListener("click", () => {
       disableButtonsEnabled,
       restartMinutes,
       bannerDurationMin,
+      pageIdentifierEnabled,
+      pageIdentifier,
     };
     chrome.storage.local.set({ config: newConfig }, () => {
       settingsSavedMsg.style.display = "block";
