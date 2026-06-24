@@ -12,7 +12,6 @@
   "permissions": ["storage", "tabs", "activeTab", "alarms"],
   "host_permissions": ["*://*/*"],
   "background": {
-    "scripts": ["background.js"],
     "service_worker": "background.js"
   },
   "action": {
