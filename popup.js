@@ -15,6 +15,8 @@ const cfgSelectors = document.getElementById("cfg-selectors");
 const cfgRestart = document.getElementById("cfg-restart");
 const cfgBanner = document.getElementById("cfg-banner");
 const cfgDisableButtons = document.getElementById("cfg-disable-buttons");
+const cfgChangeLog = document.getElementById("cfg-change-log");
+const selectorsFieldWrap = document.getElementById("selectors-field-wrap");
 const cfgIdentifierEnabled = document.getElementById("cfg-identifier-enabled");
 const cfgIdentifier = document.getElementById("cfg-identifier");
 const identifierFieldWrap = document.getElementById("identifier-field-wrap");
@@ -34,6 +36,8 @@ function openSettings() {
     cfgBanner.value =
       cfg.bannerDurationMin !== undefined ? cfg.bannerDurationMin : 1;
     cfgDisableButtons.checked = cfg.disableButtonsEnabled !== false;
+    selectorsFieldWrap.style.display = cfg.disableButtonsEnabled !== false ? "block" : "none";
+    cfgChangeLog.checked = cfg.changeLogEnabled !== false;
     cfgIdentifierEnabled.checked = cfg.pageIdentifierEnabled === true;
     cfgIdentifier.value = cfg.pageIdentifier || "";
     identifierFieldWrap.style.display = cfg.pageIdentifierEnabled ? "block" : "none";
@@ -59,6 +63,10 @@ settingsToggle.addEventListener("click", () => {
 
 settingsCancel.addEventListener("click", closeSettings);
 
+cfgDisableButtons.addEventListener("change", () => {
+  selectorsFieldWrap.style.display = cfgDisableButtons.checked ? "block" : "none";
+});
+
 cfgIdentifierEnabled.addEventListener("change", () => {
   identifierFieldWrap.style.display = cfgIdentifierEnabled.checked ? "block" : "none";
 });
@@ -78,6 +86,7 @@ settingsSave.addEventListener("click", () => {
   const disableButtonsEnabled = cfgDisableButtons.checked;
   const pageIdentifierEnabled = cfgIdentifierEnabled.checked;
   const pageIdentifier = cfgIdentifier.value.trim();
+  const changeLogEnabled = cfgChangeLog.checked;
 
   chrome.storage.local.get("config", (data) => {
     const existing = data.config || {};
@@ -92,6 +101,7 @@ settingsSave.addEventListener("click", () => {
       bannerDurationMin,
       pageIdentifierEnabled,
       pageIdentifier,
+      changeLogEnabled,
     };
     chrome.storage.local.set({ config: newConfig }, () => {
       settingsSavedMsg.style.display = "block";
@@ -112,6 +122,7 @@ settingsSave.addEventListener("click", () => {
             );
           }
         });
+        window.close();
       });
     });
   });

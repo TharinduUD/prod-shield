@@ -6,6 +6,7 @@ const DEFAULT_CONFIG = {
   bannerDurationMin: 1,
   pageIdentifierEnabled: false,
   pageIdentifier: "",
+  changeLogEnabled: true,
 };
 
 const blinkTimers = {};

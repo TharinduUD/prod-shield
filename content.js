@@ -140,7 +140,7 @@
   }
 
   function recordChange(el) {
-    if (stopped) return;
+    if (stopped || !config || config.changeLogEnabled === false) return;
     const key = getFieldKey(el);
     const label = getFieldLabel(el);
     const original = getInitialValue(el);
@@ -207,24 +207,29 @@
     }
   }
 
+  const TRACK_SELECTORS = [
+    "input",
+    "textarea",
+    "select",
+    "[role='switch']",
+    "[role='checkbox']",
+    "[role='radio']",
+    "[role='combobox']",
+    "[role='listbox']",
+    "[role='option']",
+    "[role='menuitemcheckbox']",
+    "[role='menuitemradio']",
+  ].join(", ");
+
   function trackAll() {
-    document
-      .querySelectorAll(
-        [
-          "input",
-          "textarea",
-          "select",
-          "[role='switch']",
-          "[role='checkbox']",
-          "[role='radio']",
-          "[role='combobox']",
-          "[role='listbox']",
-          "[role='option']",
-          "[role='menuitemcheckbox']",
-          "[role='menuitemradio']",
-        ].join(", "),
-      )
-      .forEach(attachListeners);
+    document.querySelectorAll(TRACK_SELECTORS).forEach(attachListeners);
+  }
+
+  function rescanChanges() {
+    document.querySelectorAll(TRACK_SELECTORS).forEach((el) => {
+      if (el._pgListening) recordChange(el);
+    });
+    reportChanges();
   }
 
   function disableButtons() {
@@ -482,6 +487,13 @@
             if (!bannerInterval) {
               showProductionBanner();
               bannerInterval = setInterval(showProductionBanner, 30000);
+            }
+            if (config.changeLogEnabled === false) {
+              changedFields = {};
+              reportChanges();
+            } else {
+              trackAll();
+              rescanChanges();
             }
           }
         } else {

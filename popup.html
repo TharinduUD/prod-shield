@@ -135,14 +135,22 @@
           </div>
 
           <div class="settings-field settings-toggle-row">
-            <span class="settings-label" style="margin-bottom:0;">Disable save buttons</span>
+            <span class="settings-label" style="margin-bottom:0;">Change Log</span>
+            <label class="toggle-switch">
+              <input id="cfg-change-log" type="checkbox" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="settings-field settings-toggle-row">
+            <span class="settings-label" style="margin-bottom:0;">Disable buttons</span>
             <label class="toggle-switch">
               <input id="cfg-disable-buttons" type="checkbox" checked />
               <span class="toggle-slider"></span>
             </label>
           </div>
 
-          <div class="settings-field">
+          <div class="settings-field" id="selectors-field-wrap">
             <label class="settings-label" for="cfg-selectors">
               Disable Button Selectors
               <span class="settings-hint">one per line</span>
